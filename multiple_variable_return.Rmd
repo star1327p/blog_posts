@@ -1,0 +1,66 @@
+---
+title: "Returning multiple values from a function in R"
+---
+
+During a [tutorial I gave for the University of Guelph R users group](https://github.com/UGRU/Week8_NonRectangularData), we were going through how to generate summary stats & tidy dataframes from messy data sources. This involved working with text data, and the exercise called for us to process a series of sentences and answer 3 questions about each line:
+
+1. Is the line dialogue? (presence of a quotation mark in the string)
+2. Is the line a question? (presence of a question mark in the string)
+3. What is the word count of the line? (split the string and count the fields)
+
+A common design pattern from other languages that I wanted to employ was to create a function that would return the answer to all three of these questions at once. In Python this would look like so:
+```
+question, dialogue, word_count = line_stats(line)
+```
+In this example, the function `line_stats` takes a single input (`line`) and returns 3 values. These three values are then assigned to the three variable names (`question, dialogue, word_count`) on the left side of the equation.
+
+This is not a viable thing to do in R. We can see below that having multiple variable names on the left side of the statement is not permitted.
+
+```{r, error=TRUE}
+ex1 = "The Voice said, \"This is no place as you understand place.\""  
+# this function doesn't work
+line_stats = function(line){     
+  is_question = grepl("\\?", line)
+  is_dialogue = grepl("\"" , line)
+  word_count = length(strsplit(line, "\\s+")[[1]])
+  return(is_question, is_dialogue, word_count)
+}
+
+question, dialogue, word_count = line_stats(ex1)
+```
+
+
+With a slight modification to the return statement from the line_stats function, it is possible to extract all three of the values computed by the function as a single vector.
+```{r, error=TRUE}
+ex1 = "The Voice said, \"This is no place as you understand place.\""
+# takes in a line and returns a vector with three fields  
+line_stats = function(line){   
+  is_question = grepl("\\?", line)
+  is_dialogue = grepl("\"" , line)
+  word_count = length(strsplit(line, "\\s+")[[1]])
+  return(c(is_question, is_dialogue, word_count)) 
+}  
+
+ex1_stats = line_stats(ex1)
+print(ex1_stats) 
+```
+
+This lets us have a function that computes several outputs in one go, but the result is still not perfect. The output has the necessary data, but it is not well documented and it would be easy to mix up which field in the output vector corresponds to which of the summary statistics we want. To make things even less obvious, returning a vector leads to the boolean outputs being returned as `1` or `0` (as opposed to `TRUE` and `FALSE`). It is also a little clunky as we will then need to perform a series of slice operations on the output vector to retrieve the different vales.
+
+To improve the reuse, readability and safety of the line_stats function, there is a pattern we can employ to return multiple values from the function where each value has a clear and unambiguous label. To do this we return a named list from the function.
+
+```{r, error=TRUE}
+ex1 = "The Voice said, \"This is no place as you understand place.\""
+# takes in a line and returns a labelled list with the following: # question T/F , dialogue T/F, wc int
+line_stats = function(line){         
+  is_question = grepl("\\?", line)
+  is_dialogue = grepl("\"" , line)
+  word_count = length(strsplit(line, "\\s+")[[1]])      
+  return(list(question = is_question, dialogue = is_dialogue, wc = word_count)) 
+}   
+
+ex1_stats = line_stats(ex1)
+ex1_stats 
+```
+
+With the named list being returned we get an output that is arguably more organized than the original 3 variable return pattern that I tried to implement. Here the function output is all assigned to a single variable and from this variable we can call the desired values using the familiar dollar sign syntax of R. This is concise, organized and lets us avoid having to separately implement a set of 2-3 highly similar functions. Overall I think this is a great design pattern and I will employ more often in future R code!

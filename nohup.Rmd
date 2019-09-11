@@ -1,0 +1,71 @@
+---
+title: "Using the nohup command to run and log backgroud processes"
+---
+
+There is a problem I often encounter when working on remote access servers through the terminal: how do I set up a script/program to run if I know its going to take a long time to execute? For a long time I solved this problem in a very lazy and fragile fashion. I would use a terminal to log in to the server (via ssh, usually on my lab's desktop pc), run the command and then not touch the terminal until the program finished. This led to a large number of jobs failing to complete due to the terminal closing or my connection being interrupted. Here are some of my favourite reasons why jobs failed this way:
+
+  - The power went out in the lab.
+  - Someone else turned the computer off.
+  - The internet connection dropped for a moment.
+  - I accidently closed the terminal window while spamming alt-f4 to close something else.
+  - I had started a job on my laptop, but I had to close it and go somewhere.
+  - The computer when to sleep because I forgot to change the settings.
+  
+When running something that takes a long time and that in many cases I had set up to run overnight, failures due to silly reasons like these can cause *days* of lost time. I began thinking there had to be a better way. So I started researching more robust alternatives that let you keep a program running on a server, even if you log out and close the connection.
+  The most concise way I've found to avoid broken pipes and early termination of scripts is the UNIX command `nohup`. The manual pages describe this function as follows: 'run a command immune to hangups, with output to a non-tty'. Simple enough, we can use it to run commands and it wont hang due to issues such as 'broken pipe'. The second part of the manual description means that instead of outputting information to the terminal (tty - or TeleTYpewriter... which is quite an anachronistic acronym!) it will record print outputs to a file, by default to `nohup.out`. This means we can view print statements from our program or any error messages, should issues be encountered during execution.
+  So how is it used? As an example, lets say we have a shell script named `long_script.sh` that takes 10hrs to run. We would normally initialize this by typing the following into the terminal:
+```
+./long_script.sh
+```
+To execute this command in a method immune to hangups, we simply do the following:
+```
+nohup ./long_script.sh &
+```
+This will return something similar to the following:
+```
+nohup: ignoring input and redirecting stderr to stdout
+```
+This lets us know that the script is running in the background. At this point we are free to close the terminal, go home for the evening and wait for it to finish. Since we closed the command with an ampersand (`&`), we can also continue using the terminal to work on other stuff. The nohup process isn't just for shell scripts either, it can be interfaced with any other command we want to run. As examples of how we may otherwise utilize it, here is what running an R or Python script via a nohup command would look like... exactly the same besides the terminal command we are wrapping:
+```
+#R
+nohup Rscript long_script.r &
+#Python
+nohup python3 long_script.py &  
+```
+Additionally, we can change the name of the file the terminal output is saved to:
+```
+nohup ./long_script.sh > long_script_execution.log &
+```
+This is useful if we are running multiple nohup commands from the same directory and don't want them overwriting each others log files. I also find it useful to have a more descriptive output name (with a .log extension to remind myself of its purpose).
+
+## How do I know if my script is running?
+  Since we set the script up to run in the background, we need to be able to check that its running and that we aren't sitting around and waiting for nothing. If your program has an informative terminal output (i.e. a progress bar or lots of print statements), then you can simply read the log files to ensure information has been added:
+```
+cat long_script_execution.log 
+```
+If the file is running, the information will be visible here. Conversely if we are still in the original terminal from which we launched the process, we can just type `jobs` to see what is running in the background.
+  If we've come back later and want to check on the process from a different terminal or computer, we can type:
+```
+ps -ax
+```
+This will show us all running processes for all users (`-a`), even those not attached to a terminal (`-x`). The list is usually long, we can easily find our process fast by piping the output to a grep command that searches for our program's name.
+```
+ps -ax | grep long_script.r
+```
+
+## How can I terminate a nohup process?
+  If you decide that the program you wanted to run to completion with no hangups should be terminated early, there is no need to worry. Stopping a process you started via nohup is almost as simple as starting it. First we run the previous command I showed to look at the process details:
+```
+ps -ax | grep long_script.r
+```
+The output will look something like this, I've added the labels in the comment:
+```
+# PID TTY      STAT   TIME  COMMAND
+  917 ?        Ss     73:36 ./long_script.sh
+```
+The first column in the PID, or process ID. To terminate the process we simply type `kill` followed by the process ID into the terminal (I know that typing `kill` into a terminal may be anxiety inducing but it won't break anything besides our nohup process). In our case this looks like:
+```
+kill 917
+```
+
+Through the simple one line nohup command and a few process management tips you can leave jobs running on a remote server even after you log out. The processes can be checked to make sure they're running and killed if they need to be. In this way you can leave long jobs running worry free, close your computer and go spend some time outside!

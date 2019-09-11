@@ -1,0 +1,70 @@
+---
+title: "Vectorizing the application of R functions for speed and simplicity"
+---
+
+When applying a function to a vector, list or dataframe column, your first instinct may be to iterate across the series of inputs. By doing this each value is touched one after the other and the outputs can be generated consecutively. An extremely useful feature of R is that functions can be vectorized. What is meant by this is that instead of the function being applied to each list member consecutively, it is applied to each member of the vector **at the same time**. This functionality is in many instances trivial to implement and it brings with it massive improvements to program runtime. To demonstrate this below, I first introduce a slow process and show how it could be run in an iterative fashion. I then show how vectorizing the function not only speeds things up, but simplifies the code as well.
+
+## Our task to optimize
+`slow_math()` is a simple function which we will use as a stand in for a computationally intensive process. All `slow_math()` does is add 2 to the input, but before doing so it pauses for 0.15 seconds.
+Imagine this as equivalent to a function you use that takes a while to execute. This could something such as a function that utilizes gradient descent or bootstrapping, iterating over the data multiple times and taking several seconds or minutes to complete each time the function is called. 
+
+```{r}
+
+slow_math = function(x){
+  Sys.sleep(0.15)
+  x + 2
+}
+```
+
+## Running the function through iteration
+
+Here we use both a for loop and an lapply statement to run the `slow_math()` function on the iris dataset and create a new column.
+
+```{r}
+
+#for looping the bottleneck function
+start_time = Sys.time()
+
+long.Sepal.Length = c()
+
+for(x in iris$Sepal.Length ){
+  long.Sepal.Length = c(long.Sepal.Length , slow_math(x))
+}
+
+iris$long.Sepal.Length  = long.Sepal.Length
+
+end_time = Sys.time()
+
+
+time_dif = difftime( end_time, start_time, units = "secs")
+print(paste("With a for loop, running slow_math() took:", as.integer(time_dif), "seconds"))
+```
+
+
+```{r}
+#lapplying the bottleneck function
+start_time = Sys.time()
+
+iris$long.Sepal.Length = lapply(iris$Sepal.Length, slow_math)
+
+end_time = Sys.time()
+
+time_dif = difftime( end_time, start_time, units = "secs")
+print(paste("With lapply, running slow_math() took:", as.integer(time_dif), "seconds"))
+```
+
+Coming from other programming languages, or trying to solve the problem in the simplest way possible may lead us to the interative solutions above. But when the function is applied to the iris dataset (150 rows) via a for loop or an lapply statement it takes 22 seconds to complete (.15 seconds of rest per call * 150 rows == 22.5 seconds). This is slow, each function call must run to completion before the next call can begin! If we have to run this analysis multiple times, or if we are just generally impatient people, then it behooves us to speed this up. 
+
+The amazing thing about vectorization is that we don't need to make our code more complicated, we in fact need to drastically simplify it. Below I call the `slow_math` function in a vectorized fashion. At first glance you may think "well that won't work, you can't do math on a vector you have to do the math on each of the vectors members", but R is smart enough to not apply the `slow_math` function to the vector as a whole, but instead to go in and apply the function on the level of the vector members. This works for the same reason that `iris$Sepal.Length * 5` is valid. And moreover, its *fast*!
+
+```{r}
+
+start_time = Sys.time()
+
+iris$long.Sepal.Length = slow_math(iris$Sepal.Length)
+
+end_time = Sys.time()
+
+time_dif = difftime( end_time, start_time, units = "secs")
+print(paste("Running slow_math() in a vectorized fashion took:", time_dif, "seconds"))
+```

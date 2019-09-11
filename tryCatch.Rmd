@@ -1,0 +1,103 @@
+---
+title: "Making use of R’s tryCatch function"
+---
+
+R's [`tryCatch`](https://www.rdocumentation.org/packages/R.oo/versions/1.2.7/topics/trycatch) function facilitates more robust error handling. It lets you `try` to run a block of code and if an error occurs, the `catch` part of the function can be used to handle exceptions in a customized manner, as opposed to halting the entire script. I have personally been deploying this design pattern pretty regularly and there are two situations in which I've found `tryCatch` to be an especially handy tool in my toolbox:
+
+1. When I don't know or care why some inputs in a large set are causing an error, I just want to omit them. This is the programming equivalent of rapidly separating the wheat from the chaff.
+
+2. When I'm developing code to clean data and the default error messages aren't very helpful. In this case the `tryCatch` function can help me pin down the exact members of a large list or dataframe that cause a problem, so that I can more carefully consider the characteristics of the problem inputs and develop a solution. 
+
+In these ways `tryCatch` can be used as a shortcut in data cleaning (allowing problem inputs to be avoided) or as a tool to help speed up debugging by identifying situations where exceptions are arising. Below I demonstrate both of these use cases.
+
+## 1. Skipping problem inputs
+
+Consider the following: a function that simply divides input numbers by 5 and a messy list of inputs that contains both integers and strings. For the integers the division function will work fine and for the strings it will throw an error and halt execution.
+
+```{r, error=TRUE}
+
+nums = list(12,88,39,"Ten",51,12)
+
+div_by_5 = function(n){
+	return(n/5)
+}
+
+#works fine
+div_by_5(nums[[1]])
+
+#error!
+div_by_5(nums[[4]])
+
+```
+
+If we apply the function to the entire list of inputs then it will yield no output, but instead throw the same error as when we applied the function to only the problem list member. We can try calling the output variable `divided_out` after running the `sapply` statement, but this results in an error as well. 
+
+```{r, error=TRUE}
+divided_out = sapply(nums, function(x){
+	div_by_5(x)
+	})
+
+divided_out
+```
+Despite the fact that the function could have successfully run on five of the six members of the list, we receive no output because the error results in a total failure of the `sapply`. Using `tryCatch`, we can isolate the error to only those members of the list that caused the problem. I wrap the previous call to the function `div_by_5` in the `tryCatch` function. The first argument to `tryCatch` is the block of code it should attempt to run for the input, and the second argument is what it should do if an error is encountered. In this case, I have the function return an `NA` if there is a problem encountered when trying to divide the input
+
+```{r, error=TRUE}
+
+divided_out = sapply(nums, function(x){
+	tryCatch(
+		#this is the chunk of code we want to run
+		{div_by_5(x)
+		#when it throws an error, the following block catches the error
+		}, error = function(msg){
+			return(NA)
+		})
+	})
+
+divided_out
+
+```
+
+As we can see in the output, despite encountering an error while processing the inputs, the output `divided_out` has still been generated. Instead of our call failing completely, the outputs were generated for the list members that did not throw an error and the exception was caught and has yielded an `NA`.
+
+## 2. Determining where in the inputs there are problems
+
+As we saw in the first example, the error messages that we got from applying the function to the list of data told us there was a problem, but it did not tell us *where* there is a problem. This is fine when working with a small list with six members, but once we scale up to larger inputs then visual inspection to locate all error causing inputs becomes an inaccurate and painful process. 
+
+```{r, error=TRUE}
+#build a big list of numbers
+nums2 = as.list(1:250000) 
+#hide some errors in it
+nums2[777] = "I'm not a number!"
+nums2[111155] = "I'm not a number either!"
+
+divided_out2 = sapply(nums2, function(x){
+	div_by_5(x)
+	})
+
+divided_out2
+```
+
+In this example, we have a list with 250,000 members that we want to do some math on. There are two bad inputs introduced where I have changed the list members to strings (so that they break our division function). When we apply our function to the list we get the same error message as before. To try to debug this we could call the input list an scan it visually for deviations from the expected. The problem with this is that the list is really long, so what if we zone out a miss some of the lines causing the errors? Or more likely, what if the source of the error is more subtle than a change of data type? (i.e. an unallowed character within a string) How could we then separate out the lines for which our function is failing? 
+
+Enter `tryCatch`, which we can use to generate more robust errors that direct us to the exact members of the input that are causing the error. We can then subset out the members of the list that are causing the errors and begin to develop to additional cleaning steps that address these deviations from the required input to our function.
+
+The difference here is that we are applying our function to the index of of list (`sapply(1:length(nums2), ...`) as opposed to directly to the list itself `sapply(nums2, ...`). Upon encountering an error, our catch code can then print out the index positions associated with the errors, allowing us to locate the problem inputs. These index positions could just as easily be saved to a vector in order to facilitate subsetting of the inputs for detailed inspection.
+
+```{r, error=TRUE}
+divided_out2 = sapply(1:length(nums2), function(x){
+	tryCatch(
+		#this is the chunk of code we want to run
+		{div_by_5(nums2[[x]])
+		#when it throws an error, the following block catches the error
+		}, error = function(msg){
+			message(paste("Error for list member:", x, "\nThis is the data at that position:", nums2[x]))
+			return(NA)
+		})
+	})
+
+divided_out2[775:780]
+```
+
+The application of the function using `tryCatch` allows us to quickly find the two list members that are causing the problem. We could then double back and add some additional cleaning steps prior to the application of our function or chose to subset out the `NA`s from the dataframe and proceed with only the clean data.
+
+Being able to identify where, as well as how many, errors are being generated is extremely useful information in the debugging process. We can thereby separate out instances where out code is failing on every member of a list from instances where there are just a few minor deviations from the expected inputs. This can help us determine the source of the problem and more easily find the best way to solve the problem.
