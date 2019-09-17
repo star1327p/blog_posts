@@ -1,0 +1,50 @@
+---
+title: "Adding a progress bar to R functions"
+author: "Cam Nugent"
+date: 2019-09-12
+categories: ["R"]
+tags: ["R", "Optimization"]
+---
+
+Older readers of this post may remember the boot screen from Windows XP. This featured a load bar that was there to essentially give a user the message: ![ ](https://media.tenor.com/images/819ded82e6f6a949dac0fb92e5935370/tenor.gif) "Hold on a minute, the computer is starting. Please chill out and don't turn the machine off, that might cause some problems!" This load bar was a bit of a hack, as it didn't increment with the progress of the boot, it just played a little animation over and over again to calm the user down. R comes with a nice little feature to help us build progress bars for our own functions, and unlike the Windows XP load barthey actually reflects how much progress has been made.
+
+## Tracking progress of functions with long run time
+The function below, `slow_math()`, is from a previous post on vectorization and it will serve as a stand in for a computationally intensive process. We will run the function via a for loop, which is inefficient in this case ([as the function can be vectorized](https://cnuge.github.io/post/vectorize_r/)) but allows us to explore the usage of the progress bar for tracking iterative processes. All `slow_math()` does is add 2 to the input, but before doing so it pauses for 0.15 seconds. Imagine this as equivalent to a function you use that is computationally intensive and therefore takes a while for the result to pop up... if you're anything like me, this can lead to getting impatient and thinking that things aren't working.
+
+```{r}
+
+slow_math = function(x){
+  Sys.sleep(0.15)
+  x + 2
+}
+```
+
+Below `slow_math()` is applied to a vector of inputs via the wrapping function `slow_function()`. The function takes 22 seconds to complete, which is more than long enough for a user to convince themselves that the program has frozen or that something has gone wrong! Within the function we can implement a progress bar, to placate the user and assure them the function is doing something. This is demonstrated and annotated below (you can try copying the code below into r and running it yourself for the full effect of the progress bar).
+
+```{r}
+slow_function = function(x){
+  out= c()
+  print("Running slow math on the inputs:")
+  # Initiate the progress bar.
+  # the progress is defined as a range from 0 to the length of x
+  # i.e. if x has a length of 10 and 3 iterations have been completed,
+  # then the progress bar will be 30% full.
+  # note you can play around with the different progress bar style options!
+  progress_bar = txtProgressBar(min=0, max=length(x), style = 1, char="=")
+  #for loop to run slow_math for each member of x
+  #we loop over the index, using this as both the means of subsetting x
+  #and the indicator of the number of iterations that have been completed
+  for(i in 1:length(x)){
+    out = c(out , slow_math(x[[i]]))
+    #Increase the amount the progress bar is filled by setting the value to i.
+    setTxtProgressBar(progress_bar, value = i)
+  }
+  close(progress_bar)
+  return(out)  
+}
+
+output = slow_function(iris$Sepal.Length)
+```
+
+When you run the code above it prints the load bar, which gets a little larger with each iteration. This lets you track the progress of the function and know that it hasn't frozen. At the end of each loop, the command `setTxtProgressBar(progress_bar, value = i)` increments the progress bar, providing the user with feedback regarding the pace and progress of execution. 
+The progress bar is a clean alternative to something such as a repeating print statement (i.e. having the following in your for loop: `print(paste("on iteration number:, i))`). I say it is cleaner because all of the output is constrained to a single line of the console, as opposed to a print statement which will output a new line for each iteration... which can get long if your datasets are large!
