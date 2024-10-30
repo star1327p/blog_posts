@@ -1,5 +1,5 @@
 ---
-title: "Using the nohup command to run and log backgroud processes"
+title: "Using the nohup command to run and log background processes"
 ---
 
 There is a problem I often encounter when working on remote access servers through the terminal: how do I set up a script/program to run if I know its going to take a long time to execute? For a long time I solved this problem in a very lazy and fragile fashion. I would use a terminal to log in to the server (via ssh, usually on my lab's desktop pc), run the command and then not touch the terminal until the program finished. This led to a large number of jobs failing to complete due to the terminal closing or my connection being interrupted. Here are some of my favourite reasons why jobs failed this way:
@@ -9,10 +9,10 @@ There is a problem I often encounter when working on remote access servers throu
   - The internet connection dropped for a moment.
   - I accidently closed the terminal window while spamming alt-f4 to close something else.
   - I had started a job on my laptop, but I had to close it and go somewhere.
-  - The computer when to sleep because I forgot to change the settings.
+  - The computer went to sleep because I forgot to change the settings.
   
 When running something that takes a long time and that in many cases I had set up to run overnight, failures due to silly reasons like these can cause *days* of lost time. I began thinking there had to be a better way. So I started researching more robust alternatives that let you keep a program running on a server, even if you log out and close the connection.
-  The most concise way I've found to avoid broken pipes and early termination of scripts is the UNIX command `nohup`. The manual pages describe this function as follows: 'run a command immune to hangups, with output to a non-tty'. Simple enough, we can use it to run commands and it wont hang due to issues such as 'broken pipe'. The second part of the manual description means that instead of outputting information to the terminal (tty - or TeleTYpewriter... which is quite an anachronistic acronym!) it will record print outputs to a file, by default to `nohup.out`. This means we can view print statements from our program or any error messages, should issues be encountered during execution.
+  The most concise way I've found to avoid broken pipes and early termination of scripts is the UNIX command `nohup`. The manual pages describe this function as follows: 'run a command immune to hangups, with output to a non-tty'. Simple enough, we can use it to run commands and it won't hang due to issues such as 'broken pipe'. The second part of the manual description means that instead of outputting information to the terminal (tty - or TeleTYpewriter... which is quite an anachronistic acronym!) it will record print outputs to a file, by default to `nohup.out`. This means we can view print statements from our program or any error messages, should issues be encountered during execution.
   So how is it used? As an example, lets say we have a shell script named `long_script.sh` that takes 10hrs to run. We would normally initialize this by typing the following into the terminal:
 ```
 ./long_script.sh
